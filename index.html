@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A.R.I.S. // Advance Response Intelligence System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        /* --- Cyber Blue UI Redesign --- */
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background: #020c1b;
+            color: #8892b0; /* Slate gray for main text */
+            overflow: hidden;
+            letter-spacing: 1px;
+        }
+        .text-glow {
+            color: #64ffda;
+            text-shadow: 0 0 5px rgba(100, 255, 218, 0.7);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        #app-wrapper {
+            display: none; /* Hidden by default */
+            animation: fadeIn 0.5s 0.5s ease-out forwards;
+            opacity: 0;
+        }
+        .top-header {
+            background-color: #001e30;
+            border-bottom: 1px solid #003b5c;
+        }
+        .terminal-window {
+            border: 1px solid #003b5c;
+            background-color: rgba(10, 25, 47, 0.75);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            border-radius: 4px; 
+            transition: width 0.3s ease-in-out, flex-basis 0.3s ease-in-out;
+        }
+        .terminal-header {
+            background-color: #001e30;
+            color: #64ffda;
+            padding: 4px 10px;
+            font-size: 0.9rem;
+            text-shadow: none;
+            text-transform: uppercase;
+        }
+        .marker {
+            position: absolute;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 0 14px;
+        }
+        .marker:hover { transform: scale(1.6); }
+        /* COLOR CODING & SIZES */
+        .marker-base { 
+            width: 20px; height: 20px;
+            background-color: #1f6feb; border: 2px solid #58a6ff; box-shadow: 0 0 14px #58a6ff; 
+        } /* Blue */
+        .marker-location {
+            width: 18px; height: 18px;
+            background-color: #f59e0b; border: 2px solid #fbbf24; box-shadow: 0 0 14px #fbbf24;
+        } /* Orange/Yellow */
+        
+        .blinking-cursor {
+            display: inline-block;
+            width: 10px;
+            height: 1.2em;
+            background-color: #64ffda;
+            animation: blink 1s step-end infinite;
+            margin-left: 5px;
+        }
+        @keyframes blink {
+            from, to { background-color: transparent; }
+            50% { background-color: #64ffda; }
+        }
+        .tool-btn, .attack-btn {
+            background-color: transparent;
+            border: 1px solid #003b5c;
+            color: #64ffda;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border-radius: 4px;
+        }
+        .tool-btn:hover, .attack-btn:hover {
+            background-color: rgba(100, 255, 218, 0.1);
+            border-color: #64ffda;
+        }
+        .tool-btn.active {
+            background-color: #64ffda;
+            border-color: #64ffda;
+            color: #0a192f;
+        }
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            background: repeating-linear-gradient(0deg, rgba(10, 25, 47, 0) 0px, rgba(10, 25, 47, 0) 1px, rgba(10, 25, 47, 0.2) 2px);
+            z-index: 9999;
+            opacity: 0.4;
+        }
+        #modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            z-index: 100;
+        }
+        .analysis-box {
+            border: 1px solid #003b5c;
+            background-color: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            margin-bottom: 12px;
+            border-radius: 4px;
+        }
+        .analysis-box h3 {
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            color: #64ffda;
+        }
+        #tools-grid {
+            transition: all 0.3s ease-in-out;
+            max-height: 500px;
+            overflow: hidden;
+        }
+        #tools-grid.hidden {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            margin-top: 0;
+        }
+        #tools-toggle-icon {
+            transition: transform 0.3s ease-in-out;
+        }
+        .prompt::before {
+            content: 'aris@root:~$ ';
+            color: #64ffda;
+        }
+
+        /* Loading Screen Styles */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #020c1b;
+            z-index: 10000;
+            color: #64ffda;
+            font-family: 'Share Tech Mono', monospace;
+            padding: 2rem;
+            font-size: 1.1rem;
+            opacity: 1;
+            transition: opacity 0.5s ease-out;
+        }
+        #loading-screen p {
+            opacity: 0;
+            white-space: pre;
+        }
+        @keyframes type-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col">
+    <div id="loading-screen">
+        <p>[ OK ] Initializing boot sequence...</p>
+        <p>[ OK ] Loading kernel modules...</p>
+        <p>[ OK ] Mounting file systems...</p>
+        <p>[ OK ] Starting network services...</p>
+        <p>[ OK ] Authenticating with Gemini AI Core...</p>
+        <p>[ OK ] Initializing A.R.I.S. Interface...</p>
+        <p>Boot sequence complete. Welcome, operator.</p>
+    </div>
+
+    <div id="app-wrapper" class="w-full h-full flex flex-col">
+        <header class="top-header w-full p-2 text-center flex-shrink-0">
+            <h1 class="text-2xl font-bold text-glow tracking-widest">A.R.I.S.</h1>
+            <p class="text-sm text-slate-400">// Advance Response Intelligence System</p>
+        </header>
+
+        <main id="app-container" class="w-full flex-grow p-4 flex gap-4 min-h-0">
+            <!-- Left Column: C&C / Intel Display -->
+            <div id="left-col" class="terminal-window flex flex-col w-3/12 lg:w-1/4 flex-shrink-0">
+                <div class="terminal-header">[A.R.I.S.] - CONSOLE</div>
+                <div id="cc-panel" class="p-4 flex flex-col flex-grow overflow-y-auto">
+                    <!-- Persistent Header -->
+                    <div>
+                        <div class="my-6">
+                            <h3 class="text-xl font-bold mb-2 text-glow">> SYSTEM_STATUS</h3>
+                            <div class="text-base space-y-2 pl-2">
+                                <p><span class="text-green-400">●</span> SYSTEM: ONLINE</p>
+                                <p><span class="text-cyan-400">●</span> GEMINI_LINK: STABLE</p>
+                                <p id="status-text"><span class="text-gray-400">●</span> STATUS: AWAITING_COMMAND</p>
+                            </div>
+                            <div class="text-sm mt-3 text-center opacity-70" id="clock"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Dynamic Content Area -->
+                    <div class="flex-grow">
+                         <!-- Default View -->
+                        <div id="cc-default-view">
+                            <p class="opacity-60 text-base prompt">select_target</p>
+                        </div>
+                        <!-- Intel View -->
+                        <div id="cc-intel-view" class="hidden text-base">
+                            <h2 id="intel-location-name" class="text-xl font-bold text-glow mb-2">LOCATION INTEL</h2>
+                            <div id="intel-content" class="space-y-3">
+                                <!-- Content generated by Gemini -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tools -->
+                    <div class="mt-auto pt-4">
+                         <div id="tools-toggle" class="flex items-center justify-between cursor-pointer">
+                            <h2 class="text-xl font-bold text-glow">> MARKER_OPS</h2>
+                            <svg id="tools-toggle-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                        </div>
+                        <div id="tools-grid" class="grid grid-cols-2 gap-3 mt-3 text-base">
+                            <button id="tool-setBase" class="tool-btn p-2">SET BASE</button>
+                            <button id="tool-setLocation" class="tool-btn p-2">SET LOC</button>
+                            <button id="tool-move" class="tool-btn p-2">MOVE</button>
+                            <button id="tool-remove" class="tool-btn p-2">REMOVE</button>
+                            <button id="tool-select" class="tool-btn p-2 active">SELECT</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="flex-grow flex flex-col gap-4 min-w-0">
+                <div class="terminal-window flex-grow flex flex-col">
+                    <div class="terminal-header flex justify-between items-center">
+                        <span>[A.R.I.S.] - MAP</span>
+                    </div>
+                    <div id="map-container" class="w-full h-full bg-black bg-opacity-20 relative overflow-hidden cursor-crosshair">
+                        <svg id="route-svg" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10"></svg>
+                        <img id="map-image" src="maps/map.jpg" onerror="this.src='https://placehold.co/1200x800/0a192f/64ffda?text=map.jpg+not+found'" class="w-full h-full object-contain">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: AI Analysis -->
+            <div id="right-col" class="terminal-window flex flex-col w-full md:w-4/12 flex-shrink-0">
+                <div class="terminal-header">[A.R.I.S.] - AI ANALYSIS</div>
+                <div id="ai-content" class="p-4 overflow-y-auto h-full text-base leading-relaxed">
+                    <!-- Attack Options View -->
+                    <div id="attack-options-view" class="hidden">
+                         <h3 class="text-xl font-bold mt-4 mb-2 text-glow">> SELECT SCENARIO</h3>
+                         <div class="grid grid-cols-2 gap-2 text-base">
+                            <button class="attack-btn p-2" data-attack="Surface-to-surface missile attack">MISSILE</button>
+                            <button class="attack-btn p-2" data-attack="Enemy militants attack">MILITANT</button>
+                            <button class="attack-btn p-2" data-attack="Local thugs attack">THUGS</button>
+                            <button class="attack-btn p-2" data-attack="Airstrike">AIRSTRIKE</button>
+                            <button class="attack-btn p-2" data-attack="Chemical attack">CHEMICAL</button>
+                            <button class="attack-btn p-2" data-attack="Freshwater poisoning">POISON</button>
+                            <button class="attack-btn p-2" data-attack="Drone strike">DRONE</button>
+                         </div>
+                    </div>
+                    <!-- AI Output View -->
+                    <div id="ai-output-view">
+                        <p class="opacity-60 prompt">standing_by</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Marker Name Modal -->
+    <div id="modal-backdrop" class="hidden items-center justify-center">
+        <div class="terminal-window w-96">
+            <div class="terminal-header" id="modal-header">CREATE MARKER</div>
+            <div class="p-4">
+                <label for="marker-name-input" class="block text-lg mb-1">> NAME:</label>
+                <input type="text" id="marker-name-input" class="bg-black bg-opacity-50 border border-cyan-700 rounded-none w-full p-2 text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                <div class="flex justify-end gap-2 mt-6">
+                    <button id="modal-cancel-btn" class="tool-btn px-4 py-2 text-base">CANCEL</button>
+                    <button id="modal-save-btn" class="tool-btn active px-4 py-2 text-base">CREATE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- STATE MANAGEMENT ---
+        let allMarkers = [];
+        let currentTool = 'select'; 
+        let draggedMarker = null;
+        let isAIProcessing = false;
+        let newMarkerData = { x: 0, y: 0, type: '' };
+        let selectedLocation = null;
+        const scenarioDateTime = 'Wednesday, October 15, 2025 at 8:32 PM IST';
+        let loadingIntervalId = null;
+
+        // --- DOM ELEMENTS (DECLARED HERE, DEFINED IN `DOMContentLoaded`) ---
+        let mapContainer, mapImage, aiContent, attackOptionsView, aiOutputView, routeSvg,
+            ccDefaultView, ccIntelView, intelContent, clockElement, modalBackdrop,
+            modalHeader, markerNameInput, modalSaveBtn, modalCancelBtn, toolButtons = {};
+
+        // --- PERSISTENCE ---
+        function saveState() {
+            localStorage.setItem('arisUserData', JSON.stringify(allMarkers));
+        }
+
+        function loadState() {
+            const savedMarkers = localStorage.getItem('arisUserData');
+            if (savedMarkers && JSON.parse(savedMarkers).length > 0) {
+                allMarkers = JSON.parse(savedMarkers);
+            } else {
+                // Setup default scenario if nothing is saved
+                allMarkers = [
+                    { id: Date.now() + 1, x: 25, y: 70, type: 'base', name: 'FOB Alpha' },
+                    { id: Date.now() + 2, x: 65, y: 35, type: 'location', name: 'Village POI' }
+                ];
+            }
+        }
+        
+        // --- UI & RENDERING ---
+        function updateClock() {
+            const scenarioDate = new Date('2025-10-15T20:32:00+05:30');
+            const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true };
+            clockElement.textContent = `[ ${new Intl.DateTimeFormat('en-GB', options).format(scenarioDate).replace(/, /g, ' // ')} ]`;
+        }
+
+        function displayLocationIntel(location, intel) {
+            ccDefaultView.classList.add('hidden');
+            ccIntelView.classList.remove('hidden');
+            document.getElementById('intel-location-name').textContent = `> INTEL: ${location.name.toUpperCase()}`;
+            
+            intelContent.innerHTML = `
+                <div>
+                    <h3 class="font-bold text-cyan-300">> POPULATION</h3>
+                    <p class="pl-2">Civilians: ~${intel.civilians}</p>
+                    <p class="pl-2">(${intel.males} M / ${intel.females} F)</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-cyan-300">> SECURITY</h3>
+                    <p class="pl-2">Militants: ${intel.militants}</p>
+                    <p class="pl-2">Officials: ${intel.officials}</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-cyan-300">> ECON/DIPLO</h3>
+                    <p class="pl-2">Tax Payers: ${intel.taxpayers}</p>
+                    <p class="pl-2">Treaties: ${intel.treaties}</p>
+                </div>
+            `;
+        }
+
+        function showDefaultCCView() {
+            ccIntelView.classList.add('hidden');
+            ccDefaultView.classList.remove('hidden');
+        }
+
+        function drawRoute(startMarker, endMarker) {
+            routeSvg.innerHTML = '';
+            if (!startMarker || !endMarker) return;
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', `${startMarker.x}%`);
+            line.setAttribute('y1', `${startMarker.y}%`);
+            line.setAttribute('x2', `${endMarker.x}%`);
+            line.setAttribute('y2', `${endMarker.y}%`);
+            line.setAttribute('stroke', '#ff3333');
+            line.setAttribute('stroke-width', '3');
+            line.setAttribute('stroke-dasharray', '8, 6');
+            routeSvg.appendChild(line);
+        }
+        
+        function renderMarkers(markersToDisplay) {
+            mapContainer.querySelectorAll('.marker').forEach(m => m.remove());
+            markersToDisplay.forEach(marker => {
+                const markerEl = document.createElement('div');
+                markerEl.className = `marker marker-${marker.type}`;
+                markerEl.style.left = `${marker.x}%`;
+                markerEl.style.top = `${marker.y}%`;
+                markerEl.dataset.id = marker.id;
+                markerEl.title = `${marker.name} (${marker.type})`;
+                
+                markerEl.addEventListener('click', e => {
+                    e.stopPropagation(); 
+                    if (currentTool === 'select' && marker.type === 'location' && !isAIProcessing) {
+                        handleLocationClick(marker);
+                    }
+                });
+                
+                markerEl.addEventListener('mousedown', e => {
+                    e.stopPropagation();
+                    if (currentTool === 'move') { draggedMarker = marker; } 
+                    else if (currentTool === 'remove') { removeMarker(marker.id); }
+                });
+                mapContainer.appendChild(markerEl);
+            });
+        }
+
+        // --- TOOLS & ACTIONS ---
+        function setActiveTool(tool) {
+            currentTool = tool;
+            Object.values(toolButtons).forEach(btn => btn.classList.remove('active'));
+            if (toolButtons[tool]) toolButtons[tool].classList.add('active');
+        }
+        
+        function addMarker(x, y, name, type) {
+            const newMarker = { id: Date.now(), x, y, type, name };
+            allMarkers.push(newMarker);
+            renderMarkers(allMarkers);
+            saveState();
+        }
+
+        function removeMarker(id) {
+            allMarkers = allMarkers.filter(m => m.id != id);
+            renderMarkers(allMarkers);
+            saveState();
+            showDefaultCCView();
+            attackOptionsView.classList.add('hidden');
+            aiOutputView.innerHTML = '<p class="opacity-60 prompt">standing_by</p>';
+            routeSvg.innerHTML = '';
+        }
+        
+        function updateStatus(text, isProcessing = false) {
+             const statusLightEl = document.getElementById('status-text').parentElement;
+             statusLightEl.innerHTML = `<span class="text-gray-400">●</span> STATUS: ${text}`;
+             if (isProcessing) {
+                statusLightEl.children[0].classList.remove('text-gray-400');
+                statusLightEl.children[0].classList.add('text-yellow-400', 'animate-pulse');
+             } else {
+                 statusLightEl.children[0].classList.remove('text-yellow-400', 'animate-pulse');
+                 statusLightEl.children[0].classList.add('text-gray-400');
+             }
+        }
+
+        // --- MODAL LOGIC ---
+        function openModal(x, y, type) {
+            newMarkerData = { x, y, type };
+            modalHeader.textContent = `CREATE ${type.toUpperCase()}`;
+            const defaultName = type === 'base' 
+                ? 'FOB ' + (allMarkers.filter(m => m.type === 'base').length + 1)
+                : 'POI ' + (allMarkers.filter(m => m.type === 'location').length + 1);
+            markerNameInput.value = defaultName;
+            modalBackdrop.classList.remove('hidden');
+            modalBackdrop.classList.add('flex');
+            markerNameInput.focus();
+        }
+
+        function closeModal() {
+            modalBackdrop.classList.add('hidden');
+            modalBackdrop.classList.remove('flex');
+        }
+
+        // --- EVENT HANDLERS & INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // FIX: Define all DOM element constants here, after the DOM is loaded.
+            mapContainer = document.getElementById('map-container');
+            mapImage = document.getElementById('map-image');
+            aiContent = document.getElementById('ai-content');
+            attackOptionsView = document.getElementById('attack-options-view');
+            aiOutputView = document.getElementById('ai-output-view');
+            routeSvg = document.getElementById('route-svg');
+            ccDefaultView = document.getElementById('cc-default-view');
+            ccIntelView = document.getElementById('cc-intel-view');
+            intelContent = document.getElementById('intel-content');
+            clockElement = document.getElementById('clock');
+            modalBackdrop = document.getElementById('modal-backdrop');
+            modalHeader = document.getElementById('modal-header');
+            markerNameInput = document.getElementById('marker-name-input');
+            modalSaveBtn = document.getElementById('modal-save-btn');
+            modalCancelBtn = document.getElementById('modal-cancel-btn');
+            
+            // Loading Screen Logic
+            const loadingScreen = document.getElementById('loading-screen');
+            const appWrapper = document.getElementById('app-wrapper');
+            const bootLines = loadingScreen.querySelectorAll('p');
+            let delay = 250;
+
+            bootLines.forEach((line, index) => {
+                setTimeout(() => {
+                    line.style.animation = 'type-in 0.1s forwards';
+                }, delay * index);
+            });
+
+            setTimeout(() => {
+                loadingScreen.style.opacity = '0';
+                appWrapper.style.display = 'flex';
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                }, 500);
+            }, delay * bootLines.length + 1000);
+
+            // App Initialization
+            toolButtons = {
+                setBase: document.getElementById('tool-setBase'),
+                setLocation: document.getElementById('tool-setLocation'),
+                move: document.getElementById('tool-move'),
+                remove: document.getElementById('tool-remove'),
+                select: document.getElementById('tool-select')
+            };
+
+            Object.keys(toolButtons).forEach(key => {
+                if(toolButtons[key]) { 
+                    toolButtons[key].addEventListener('click', () => setActiveTool(key));
+                }
+            });
+
+            document.querySelectorAll('.attack-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const attackType = e.target.dataset.attack;
+                    handleAIAnalysis(attackType);
+                });
+            });
+
+            document.getElementById('tools-toggle').addEventListener('click', () => {
+                document.getElementById('tools-grid').classList.toggle('hidden');
+                document.getElementById('tools-toggle-icon').classList.toggle('rotate-180');
+            });
+
+            modalSaveBtn.addEventListener('click', () => {
+                const name = markerNameInput.value.trim();
+                if (name) {
+                    addMarker(newMarkerData.x, newMarkerData.y, name, newMarkerData.type);
+                    closeModal();
+                }
+            });
+
+            modalCancelBtn.addEventListener('click', closeModal);
+
+            mapContainer.addEventListener('click', (e) => {
+                if (currentTool === 'setBase' || currentTool === 'setLocation') {
+                    const rect = mapContainer.getBoundingClientRect();
+                    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+                    const type = currentTool === 'setBase' ? 'base' : 'location';
+                    openModal(x, y, type);
+                }
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!draggedMarker) return;
+                const rect = mapContainer.getBoundingClientRect();
+                let x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                let y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+                draggedMarker.x = x;
+                draggedMarker.y = y;
+                renderMarkers(allMarkers); 
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (draggedMarker) {
+                    saveState();
+                    draggedMarker = null;
+                }
+            });
+            
+            setActiveTool('select');
+            updateClock();
+            
+            mapImage.onload = () => {
+                loadState();
+                renderMarkers(allMarkers); 
+            };
+            if (mapImage.complete && mapImage.naturalHeight !== 0) {
+                 mapImage.onload();
+            }
+        });
+
+        // --- AI & CORE LOGIC ---
+        function startLoadingAnimation(container, steps) {
+            if (loadingIntervalId) clearInterval(loadingIntervalId);
+            container.innerHTML = '';
+            let step = 0;
+            loadingIntervalId = setInterval(() => {
+                if (step < steps.length) {
+                    container.innerHTML += `<p class="prompt">${steps[step]}</p>`;
+                    step++;
+                } else {
+                    clearInterval(loadingIntervalId);
+                    container.innerHTML += `<p class="prompt">AWAITING_RESPONSE<span class="blinking-cursor"></span></p>`;
+                }
+            }, 600);
+        }
+
+        async function fetchLocationIntel(location) {
+            ccIntelView.classList.remove('hidden');
+            ccDefaultView.classList.add('hidden');
+            const intelSteps = ["querying_intel_db...", "decrypting_field_report..."];
+            startLoadingAnimation(intelContent, intelSteps);
+            
+            const userQuery = `You are an intelligence analyst. For a location named "${location.name}" in a conflict zone in India, generate plausible intelligence data. Provide only the JSON object.`;
+            const schema = {
+                type: "OBJECT",
+                properties: {
+                    "civilians": { "type": "NUMBER" }, "males": { "type": "NUMBER" }, "females": { "type": "NUMBER" },
+                    "militants": { "type": "NUMBER" }, "officials": { "type": "NUMBER" }, "taxpayers": { "type": "NUMBER" },
+                    "treaties": { "type": "STRING" }
+                }
+            };
+
+            try {
+                const apiKey = "AIzaSyCGvNJ0suoLGjPUhRb3kv3b7D77qpWc35s"; 
+                if (!apiKey) throw new Error("API Key is missing.");
+
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                const payload = { contents: [{ parts: [{ text: userQuery }] }], generationConfig: { responseMimeType: "application/json", responseSchema: schema } };
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                
+                clearInterval(loadingIntervalId);
+                if (!response.ok) throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                
+                const result = await response.json();
+                const jsonText = result.candidates[0].content.parts[0].text;
+                const intel = JSON.parse(jsonText);
+                displayLocationIntel(location, intel);
+
+            } catch (error) {
+                clearInterval(loadingIntervalId);
+                console.error("Intel Fetch Error:", error);
+                intelContent.innerHTML = `<p class="text-red-500">// Failed to retrieve intel. Check API Key.</p>`;
+            }
+        }
+        
+        function handleLocationClick(clickedLocation) {
+            selectedLocation = clickedLocation;
+            fetchLocationIntel(clickedLocation);
+            attackOptionsView.classList.remove('hidden');
+            aiOutputView.innerHTML = '<p class="opacity-60 prompt">select_scenario</p>';
+            routeSvg.innerHTML = '';
+        }
+        
+        function imageToBase64(imgElement, callback) {
+            if (!imgElement.src || imgElement.src.startsWith('https://placehold.co') || !imgElement.complete || imgElement.naturalHeight === 0) {
+                callback(null);
+                return;
+            }
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                const dataURL = canvas.toDataURL('image/jpeg');
+                callback(dataURL.split(',')[1]);
+            };
+            img.onerror = () => {
+                console.error("CORS Error: Cannot convert map image. Run from a local server (see README).")
+                callback(null);
+            };
+            img.src = imgElement.src;
+        }
+
+
+        async function handleAIAnalysis(attackType) {
+            if (!selectedLocation || isAIProcessing) return;
+
+            const bases = allMarkers.filter(m => m.type === 'base');
+            if (bases.length === 0) {
+                aiOutputView.innerHTML = `<p class="text-yellow-400 prompt">error_no_base_established</p>`;
+                return;
+            }
+
+            let nearestBase = null;
+            let minDistance = Infinity;
+            bases.forEach(base => {
+                const dx = base.x - selectedLocation.x;
+                const dy = base.y - selectedLocation.y;
+                const distance = Math.sqrt(dx*dx + dy*dy);
+                if(distance < minDistance) {
+                    minDistance = distance;
+                    nearestBase = base;
+                }
+            });
+
+            isAIProcessing = true;
+            attackOptionsView.classList.add('hidden');
+            const analysisSteps = ["analyzing_vectors...", "calculating_reinforcements...", "generating_report..."];
+            startLoadingAnimation(aiOutputView, analysisSteps);
+            
+            const intelSummary = document.getElementById('intel-content').innerText;
+
+            imageToBase64(mapImage, async (base64ImageData) => {
+                
+                let userQuery = `
+You are analyzing a tactical simulation set in a generic rural area of India. The location names are for simulation purposes only and have no real-world geographic correspondence.
+The current time is ${scenarioDateTime}.
+We are analyzing a hostile action against our friendly Location of Interest, '${selectedLocation.name}', which is at relative map coordinates [${selectedLocation.x.toFixed(2)}, ${selectedLocation.y.toFixed(2)}]. 
+The nearest friendly base is '${nearestBase.name}' at [${nearestBase.x.toFixed(2)}, ${nearestBase.y.toFixed(2)}].
+Intelligence summary for '${selectedLocation.name}': ${intelSummary}.
+
+The specific attack scenario to analyze is: **${attackType}**.
+`;
+
+                if (base64ImageData) {
+                    userQuery += "\nBased on the provided map image, visually trace the road network and identify landmarks to formulate a usable ground route."
+                } else {
+                    userQuery += "\nIMPORTANT: The topographical map image is unavailable. Your analysis must proceed based on general tactical principles without visual terrain data. Explicitly state this limitation in your 'STRATEGIC ROUTE' section. Treat the provided coordinates as relative abstract positions."
+                }
+
+                userQuery += `
+Provide a tactical response plan. IMPORTANT: Your response must be extremely concise and use bullet points with very short sentences.
+
+### THREAT ANALYSIS
+- [Briefly analyze the implications of a "${attackType}".]
+
+### REINFORCEMENT PLAN
+- [List 2-3 critical supplies and required personnel count from '${nearestBase.name}'.]
+
+### STRATEGIC ROUTE
+- [Act as a ground navigation system. Analyze the map to find the best route along the road network. Provide simple, turn-by-turn directions. Mention key visual landmarks like intersections, bridges, or distinct buildings visible on the map.]
+
+### HOSTAGE & ASSET NEGOTIATION
+- [Suggest 1-2 negotiable assets or strategies.]
+
+### CIVILIAN RISK ASSESSMENT
+- [List the top 2 risks to civilians.]
+
+### MEDIA ADVISORY
+- [Draft a 1-2 sentence press statement.]
+
+### POLITICAL ADVISORY
+- [Suggest 1-2 immediate political steps.]`;
+
+                try {
+                    const apiKey = "AIzaSyCGvNJ0suoLGjPUhRb3kv3b7D77qpWc35s"; 
+                    if (!apiKey) throw new Error("API Key is missing.");
+
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                    
+                    const parts = [{ text: userQuery }];
+                    if (base64ImageData) {
+                        parts.push({
+                            inlineData: {
+                                mimeType: "image/jpeg",
+                                data: base64ImageData
+                            }
+                        });
+                    }
+
+                    const payload = { contents: [{ parts: parts }] };
+
+                    const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    
+                    clearInterval(loadingIntervalId);
+
+                    if (!response.ok) throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                    
+                    const result = await response.json();
+                    if (!result.candidates || !result.candidates[0].content.parts[0].text) {
+                        throw new Error("Invalid response structure from API.");
+                    }
+                    const analysisText = result.candidates[0].content.parts[0].text;
+                    
+                    // New formatting logic for boxes
+                    const sections = analysisText.split('### ').filter(s => s.trim() !== '');
+                    let formattedHtml = sections.map(section => {
+                        const lines = section.split('\n');
+                        const title = lines.shift().trim();
+                        const content = lines.join('<br>')
+                            .replace(/\*\*(.*?)\*\*/g, '<span class="text-cyan-300">$1</span>')
+                            .replace(/- /g, '&bull; '); // Replace markdown bullets with html bullets
+                        
+                        return `<div class="analysis-box">
+                                    <h3 class="text-xl font-bold text-glow">> ${title}</h3>
+                                    <div class="pl-2">${content}</div>
+                                </div>`;
+                    }).join('');
+
+                    aiOutputView.innerHTML = formattedHtml;
+
+                    drawRoute(nearestBase, selectedLocation);
+
+                } catch (error) {
+                    clearInterval(loadingIntervalId);
+                    console.error("Gemini API Error:", error);
+                    aiOutputView.innerHTML = `<p class="text-red-500">// ERROR: FAILED TO CONNECT TO AI CORE</p><p class="text-red-500 opacity-80">// ${error.message}</p>`;
+                } finally {
+                    isAIProcessing = false;
+                }
+            });
+        }
+        
+    </script>
+</body>
+</html>
+
